@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Исследование — БК «Югра»</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="top"><div class="top-in">
+  <img src="img/logo.png" alt="" onerror="this.style.display='none'">
+  <a href="index.html">← На главную</a>
+</div></div>
+
+<main class="page wide">
+  <h1>Исследование</h1>
+  <p class="q" id="question"></p>
+
+  <div class="rtabs" role="tablist">
+    <button class="rtab on" data-t="a">Итоги</button>
+    <button class="rtab" data-t="b">Факторы</button>
+    <button class="rtab" data-t="c">Интервью</button>
+  </div>
+
+  <!-- ИТОГИ -->
+  <section class="rpane" id="a"></section>
+
+  <!-- ФАКТОРЫ -->
+  <section class="rpane" id="b" hidden>
+    <div class="seg big" id="views">
+      <button class="vb on" data-v="v1">Дом и выезд</button>
+      <button class="vb" data-v="v2">Победы и поражения</button>
+      <button class="vb" data-v="v3">Что решает дома / в гостях</button>
+    </div>
+    <p class="ask" id="ask"></p>
+    <div class="seg" id="side" hidden>
+      <button class="on" data-s="home">Дома</button>
+      <button data-s="away">В гостях</button>
+    </div>
+    <div class="panel">
+      <div class="legend" id="legend"></div>
+      <div id="rows"></div>
+      <p class="cap">Нажмите на название показателя, чтобы прочитать, что это такое.</p>
+    </div>
+    <div class="micro" id="micro"></div>
+    <div class="notyet" id="notyet"></div>
+  </section>
+
+  <!-- ИНТЕРВЬЮ -->
+  <section class="rpane" id="c" hidden>
+    <div class="two">
+      <div id="ivVideo"></div>
+      <div id="ivQuotes"></div>
+    </div>
+    <div class="panel"><h2>Вопросы и ответы</h2><div id="ivQA"></div></div>
+    <div class="micro" id="ivNums"></div>
+  </section>
+</main>
+
+<script src="research-data.js"></script>
+<script>
+const R = window.RESEARCH, thr = R.threshold;
+const $ = id => document.getElementById(id);
+const fmt = (v, unit) => v.toFixed(1).replace('.', ',') + (unit === '%' ? '%' : '');
+const pct = (a, b) => Math.round(a / b * 100);
+const diffPct = (a, b) => Math.abs(a - b) / Math.min(a, b) * 100;   // для дом/выезд
+const effect = f => Math.abs(f.win - f.loss) / f.loss * 100;        // сила влияния: победа/поражение
+
+$('question').textContent = R.question;
+
+/* ---------- ИТОГИ ---------- */
+const games = R.home.games + R.away.games, wins = R.home.wins + R.away.wins, losses = R.home.losses + R.away.losses;
+const hp = pct(R.home.wins, R.home.games), ap = pct(R.away.wins, R.away.games);
+const bar = (o, p) => `<div class="bar"><span class="bw" style="width:${p}%">${o.wins} ${p>38?'побед':''}</span><span class="bl" style="width:${100-p}%">${o.losses} ${100-p>38?'поражений':''}</span></div>`;
+const meta = [
+  `Матчей: ${games} (${R.home.games} дома, ${R.away.games} в гостях).`,
+  `Сравниваются ${R.factors.length} показателей: средние значения за матч.`,
+  `Разница меньше ${thr}% считается несущественной (условная граница).`,
+  R.period && `Период: ${R.period}.`, R.source && `Источник данных: ${R.source}.`
+].filter(Boolean).map(s => `<li>${s}</li>`).join('');
+$('a').innerHTML = `
+  <div class="kpis">
+    <div class="kpi"><b>${games}</b>матча</div>
+    <div class="kpi"><b>${R.home.games} / ${R.away.games}</b>дома / в гостях</div>
+    <div class="kpi"><b>${wins}</b>побед</div>
+    <div class="kpi"><b>${losses}</b>поражений</div>
+  </div>
+  <div class="two">
+    <div class="panel"><h2>Дома</h2>${bar(R.home, hp)}<p class="cap">${hp}% побед из ${R.home.games} матчей</p></div>
+    <div class="panel"><h2>В гостях</h2>${bar(R.away, ap)}<p class="cap">${ap}% побед из ${R.away.games} матчей</p></div>
+  </div>
+  <div class="main"><b>Главный вывод:</b> ${R.texts.main}</div>
+  <details class="meta"><summary>Как проводилось исследование</summary><ul>${meta}</ul></details>`;
+
+/* ---------- ФАКТОРЫ ---------- */
+let view = 'v1', side = 'home';
+
+const tag = (cls, text) => `<div class="tag ${cls}">${text}</div>`;
+const barRow = (val, color, unit, max) =>
+  `<div class="bb"><em>${fmt(val, unit)}</em><div class="trk"><div style="width:${val/max*100}%;background:${color}"></div></div></div>`;
+const frow = (f, bars, tagHtml, sub) => `
+  <div class="fr"><button class="fn" type="button">${f.name}<small>${sub || ''}</small></button>
+    <div>${bars}</div>${tagHtml}
+    <div class="def" hidden><b>Что это:</b> ${f.def}</div></div>`;
+
+function leaning(f, v){            // к чему ближе значение v: к победам или к поражениям
+  if (effect(f) < thr) return {cls:'tn', text:'● нет вывода'};
+  const t = (v - f.loss) / (f.win - f.loss);
+  if (Math.abs(t - 0.5) < 0.05) return {cls:'tn', text:'● посередине'};
+  const strong = Math.abs(t - 0.5) >= 0.25, win = t > 0.5;
+  return win ? {cls:'tw', text:`▲ ${strong?'':'слабо '}к победе`} : {cls:'tl', text:`▼ ${strong?'':'слабо '}к поражению`};
+}
+
+function render(){
+  const fs = R.factors.slice();
+  let html = '';
+  $('side').hidden = view !== 'v3';
+  const lg = (c, t) => `<span><i style="background:${c}"></i>${t}</span>`;
+
+  if (view === 'v1'){
+    $('ask').innerHTML = 'Чем игры дома отличаются от игр в гостях? <span>Средние показатели за все матчи.</span>';
+    $('legend').innerHTML = lg('#2557b0','дома') + lg('#f08a00','в гостях');
+    fs.sort((a,b) => diffPct(b.home,b.away) - diffPct(a.home,a.away));
+    html = fs.map(f => {
+      const m = Math.max(f.home, f.away), small = diffPct(f.home, f.away) < thr;
+      const t = small ? tag('tn','● почти одинаково') : f.home > f.away ? tag('tb','дома больше') : tag('to','в гостях больше');
+      return frow(f, barRow(f.home,'#2557b0',f.unit,m) + barRow(f.away,'#f08a00',f.unit,m), t, f.lowerBetter ? 'меньше = лучше' : '');
+    }).join('');
+    $('micro').innerHTML = micro(R.texts.v1.short, R.texts.v1.more);
+  }
+  if (view === 'v2'){
+    $('ask').innerHTML = 'Чем победы отличаются от поражений? <span>Все матчи вместе, дом и выезд не разделяются.</span>';
+    $('legend').innerHTML = lg('#1f9d55','в победах') + lg('#d64545','в поражениях');
+    fs.sort((a,b) => effect(b) - effect(a));
+    html = fs.map(f => {
+      const m = Math.max(f.win, f.loss);
+      let t;
+      if (effect(f) < thr) t = tag('tn','● почти не влияет');
+      else { const good = f.lowerBetter ? f.win < f.loss : f.win > f.loss; t = good ? tag('tw','▲ к победе') : tag('tl','▼ к поражению'); }
+      return frow(f, barRow(f.win,'#1f9d55',f.unit,m) + barRow(f.loss,'#d64545',f.unit,m), t, f.lowerBetter ? 'меньше = лучше' : '');
+    }).join('');
+    $('micro').innerHTML = micro(R.texts.v2.short, R.texts.v2.more);
+  }
+  if (view === 'v3'){
+    const home = side === 'home', col = home ? '#2557b0' : '#f08a00';
+    $('ask').innerHTML = 'К чему ближе игры дома и в гостях: к победам или к поражениям? <span>Среднее по дому (или выезду) сравнивается со средним по победам и по поражениям.</span>';
+    $('legend').innerHTML = lg('#1f9d55','победы (все матчи)') + lg('#d64545','поражения (все матчи)') + lg(col, home ? 'дома' : 'в гостях');
+    fs.sort((a,b) => effect(b) - effect(a));
+    html = fs.map(f => {
+      const v = home ? f.home : f.away, m = Math.max(f.win, f.loss, v), l = leaning(f, v);
+      return frow(f, barRow(f.win,'#1f9d55',f.unit,m) + barRow(f.loss,'#d64545',f.unit,m) + barRow(v,col,f.unit,m), tag(l.cls, l.text), f.lowerBetter ? 'меньше = лучше' : '');
+    }).join('');
+    $('micro').innerHTML = micro(home ? R.texts.v3.home : R.texts.v3.away, R.texts.v3.more);
+  }
+  $('rows').innerHTML = html;
+}
+const micro = (short, more) => `<p><b>Микровывод.</b> ${short}</p>
+  <details><summary>Подробнее</summary><p>${more}</p></details>`;
+
+/* карточка «что не подтвердилось» */
+(function(){
+  const flat = R.factors.filter(f => effect(f) < thr);
+  const sameVenue = R.factors.filter(f => diffPct(f.home, f.away) < thr && effect(f) >= thr);
+  let out = '';
+  flat.forEach(f => out += `<li><b>${f.name}:</b> в победах ${fmt(f.win,f.unit)}, в поражениях ${fmt(f.loss,f.unit)}. Показатель не отличает победу от поражения.</li>`);
+  sameVenue.forEach(f => out += `<li><b>${f.name}:</b> дома ${fmt(f.home,f.unit)}, в гостях ${fmt(f.away,f.unit)}, то есть от места игры почти не зависит. При этом между победами (${fmt(f.win,f.unit)}) и поражениями (${fmt(f.loss,f.unit)}) разница заметная: результат связан с точностью, а не с площадкой.</li>`);
+  $('notyet').innerHTML = out ? `<h3>Что не подтвердилось</h3><ul>${out}</ul>
+    <p class="cap">Отрицательный результат тоже результат: он показывает, на что не стоит делать ставку при объяснении побед.</p>` : '';
+})();
+
+/* ---------- переключатели ---------- */
+document.querySelectorAll('.rtab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.rtab').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.rpane').forEach(p => p.hidden = p.id !== b.dataset.t);
+});
+document.querySelectorAll('.vb').forEach(b => b.onclick = () => {
+  view = b.dataset.v;
+  document.querySelectorAll('.vb').forEach(x => x.classList.toggle('on', x === b)); render();
+});
+document.querySelectorAll('#side button').forEach(b => b.onclick = () => {
+  side = b.dataset.s;
+  document.querySelectorAll('#side button').forEach(x => x.classList.toggle('on', x === b)); render();
+});
+$('rows').addEventListener('click', e => {
+  const b = e.target.closest('.fn'); if (!b) return;
+  const d = b.closest('.fr').querySelector('.def'); d.hidden = !d.hidden;
+});
+render();
+
+/* ---------- ИНТЕРВЬЮ ---------- */
+const IV = R.interview, esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const rt = (IV.video || '').match(/rutube\.ru\/(?:video|play\/embed)\/([0-9a-f]{32})/i);
+$('ivVideo').innerHTML = rt
+  ? `<div class="vid"><iframe src="https://rutube.ru/play/embed/${rt[1]}" allow="clipboard-write; autoplay" allowfullscreen frameborder="0"></iframe></div>`
+  : '<div class="vid"><div class="play">▶</div></div><p class="cap" style="margin-top:8px">Видео появится здесь.</p>';
+$('ivQuotes').innerHTML = `<p class="cap" style="margin:0 0 10px">${esc(IV.player || 'Игрок БК «Югра»')}</p>` + IV.quotes.map(q => `<div class="quote">«${esc(q)}»</div>`).join('');
+$('ivQA').innerHTML = IV.qa.map((x, i) => `<div class="qa2"><div class="qq"><span>${i + 1}</span>${esc(x.q)}</div><p class="aa">${esc(x.a)}</p></div>`).join('');
+$('ivNums').innerHTML = `<h3 style="margin-bottom:8px">Что говорят цифры</h3>` + IV.compare.map(c =>
+  `<div class="cmp"><b>${esc(c.t)}</b> <span class="cs ${c.s === 'совпало' ? 'ok' : 'half'}">${esc(c.s)}</span><p>${esc(c.x)}</p></div>`).join('');
+</script>
+</body>
+</html>

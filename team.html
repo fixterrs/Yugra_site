@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Команда сейчас — БК «Югра»</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="top"><div class="top-in">
+  <img src="img/logo.png" alt="" onerror="this.style.display='none'">
+  <a href="index.html">← На главную</a>
+</div></div>
+
+<main class="page wide">
+  <h1>Команда сейчас</h1>
+  <p class="note" id="meta" style="margin:-6px 0 16px"></p>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="superliga" role="tab">Суперлига</button>
+    <button class="tab" data-tab="cup" role="tab">Кубок России</button>
+  </div>
+
+  <!-- Слева матчи «Югры», справа таблица или сетка -->
+  <section id="superliga" class="tabpane split">
+    <div class="col" id="sl-left"></div>
+    <div class="col" id="sl-right"></div>
+  </section>
+
+  <section id="cup" class="tabpane split" hidden>
+    <div class="col" id="cup-left"></div>
+    <div class="col" id="cup-right"></div>
+  </section>
+
+  <p class="note">Источники:
+    <a id="sl-src" target="_blank" rel="noopener">Суперлига</a> ·
+    <a id="cup-src" target="_blank" rel="noopener">Кубок России</a> (сайт РФБ)</p>
+</main>
+
+<script src="data.js"></script>
+<script>
+const d = window.YUGRA_DATA;
+const us = s => /югра/i.test(s);
+
+document.getElementById('meta').textContent = `Сезон ${d.season}. Обновлено: ${d.updated}`;
+document.getElementById('sl-src').href  = d.superliga.source;
+document.getElementById('cup-src').href = d.cup.source;
+
+/* ---------- общие функции ---------- */
+const dateKey = s => {            // дата вида 8.10.2026 или 7–8.10.2026 -> число для сортировки
+  const m = [...String(s).matchAll(/(\d{1,2})\.(\d{1,2})\.(\d{4})/g)].pop();
+  return m ? new Date(+m[3], +m[2]-1, +m[1]).getTime() : 0;
+};
+const pts = sc => sc.split(':').map(Number);
+
+function card(m, played){
+  let badge = '';
+  if (played){
+    const [a,b] = pts(m.score);
+    const y = us(m.home) ? a : b, o = us(m.home) ? b : a;
+    badge = y > o ? '<span class="badge win">Победа</span>' : '<span class="badge loss">Поражение</span>';
+  }
+  return `<div class="mcard">
+    <div class="mdate"><span>${m.date}${m.time ? ', '+m.time+' МСК' : ''}</span>${badge}</div>
+    <div class="mrow">
+      <span class="mteam ${us(m.home)?'us':''}">${m.home}</span>
+      <span class="mscore">${played ? m.score : '—:—'}</span>
+      <span class="mteam r ${us(m.away)?'us':''}">${m.away}</span>
+    </div></div>`;
+}
+
+// блок: первый матч виден, остальные раскрываются кнопкой
+function block(title, items, played, emptyText){
+  if (!items.length) return `<div class="panel"><h2>${title}</h2><p class="empty">${emptyText}</p></div>`;
+  const rest = items.slice(1);
+  return `<div class="panel"><h2>${title}</h2>
+    ${card(items[0], played)}
+    <div class="more-list" hidden>${rest.map(m => card(m, played)).join('')}</div>
+    ${rest.length ? `<button class="expand" data-more="${rest.length}">Развернуть (ещё ${rest.length})</button>` : ''}
+  </div>`;
+}
+
+function leftColumn(played, upcoming){
+  // прошедшие: самый свежий матч первым; расписание: ближайший первым
+  played   = played.filter(m => us(m.home+' '+m.away)).sort((a,b) => dateKey(b.date) - dateKey(a.date));
+  upcoming = upcoming.filter(m => us(m.home+' '+m.away)).sort((a,b) => dateKey(a.date) - dateKey(b.date));
+  return block('Прошедшие матчи', played, true, 'Матчей ещё нет')
+       + block('Расписание', upcoming, false, 'Ближайших матчей нет');
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('.expand'); if (!b) return;
+  const list = b.previousElementSibling;
+  list.hidden = !list.hidden;
+  b.textContent = list.hidden ? `Развернуть (ещё ${b.dataset.more})` : 'Свернуть';
+});
+
+/* ---------- Суперлига ---------- */
+const sl = d.superliga;
+document.getElementById('sl-left').innerHTML = leftColumn(
+  sl.results.map(g => ({date:g[0], home:g[1], away:g[2], score:g[3]})),
+  sl.schedule.map(g => ({date:g[0], time:g[1], home:g[2], away:g[3]}))
+);
+document.getElementById('sl-right').innerHTML = `
+  <div class="panel"><h2>Турнирная таблица</h2>
+  <table><thead><tr><th>#</th><th>Команда</th><th>И</th><th>В</th><th>П</th><th>%</th><th>+/−</th><th>Очки</th></tr></thead><tbody>
+  ${sl.table.length
+    ? sl.table.map((r,i) => `<tr class="${us(r[0])?'us':''}"><td>${i+1}</td><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[7]}</td><td>${r[8]}</td></tr>`).join('')
+    : '<tr><td colspan="8" class="empty">Данные ещё не загружены</td></tr>'}
+  </tbody></table>
+  <p class="note">В таблице все команды. Места определяет РФБ; при разном числе игр смотрите на процент побед.</p></div>`;
+
+/* ---------- Кубок России ---------- */
+const legs = d.cup.rounds.flatMap(r => r.ties.flatMap(t => t.legs)).filter(l => us(l.home+' '+l.away));
+document.getElementById('cup-left').innerHTML = leftColumn(
+  legs.filter(l => l.score), legs.filter(l => !l.score)
+);
+
+// пара -> строки двух команд: очки в каждом матче и сумма
+function tieHTML(t){
+  const [a, b] = [t.legs[0].home, t.legs[0].away];
+  const row = team => {
+    const per = t.legs.map(l => l.score ? pts(l.score)[l.home === team ? 0 : 1] : null);
+    const sum = per.every(v => v !== null) ? per[0] + per[1] : null;
+    return {team, per, sum};
+  };
+  const ra = row(a), rb = row(b);
+  const done = ra.sum !== null;
+  const cls = (r, o) => (us(r.team) ? 'us ' : '') + (done && r.sum > o.sum ? 'win' : '');
+  const line = (r, o) => `<div class="trow ${cls(r,o)}"><span class="tname">${r.team}</span>
+    <span>${r.per[0] ?? ''}</span><span>${r.per[1] ?? ''}</span><b>${r.sum ?? ''}</b></div>`;
+  const next = t.legs.find(l => !l.score);
+  return `<div class="tie2 ${us(a+' '+b)?'tie-us':''}">
+    <div class="thead"><span></span><span>1</span><span>2</span><span>Σ</span></div>
+    ${line(ra, rb)}${line(rb, ra)}
+    ${next ? `<div class="tnext">${next.date}${next.time ? ', '+next.time : ''}</div>` : ''}</div>`;
+}
+document.getElementById('cup-right').innerHTML = `
+  <div class="panel"><h2>Сетка плей-офф</h2>
+  <div class="bracket">
+  ${d.cup.rounds.map(r => `<div class="rcol"><div class="rname">${r.name}</div>
+    <div class="rties">${r.ties.length
+      ? r.ties.map(t => `<div class="tslot">${tieHTML(t)}</div>`).join('')
+      : '<div class="tslot"><div class="tie2 tbd">Пары определятся позже</div></div>'}</div></div>`).join('')}
+  </div>
+  <p class="note">В паре два матча, дальше проходит команда с большей суммой очков (Σ). Победитель пары выделен.</p></div>`;
+
+/* ---------- переключатель вкладок ---------- */
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === b));
+  document.querySelectorAll('.tabpane').forEach(p => p.hidden = p.id !== b.dataset.tab);
+  history.replaceState(null, '', '#' + b.dataset.tab);
+});
+if (location.hash === '#cup') document.querySelector('[data-tab=cup]').click();
+</script>
+</body>
+</html>
