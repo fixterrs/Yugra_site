@@ -203,3 +203,9 @@ details.qa p{margin-top:10px;white-space:pre-line}
 .qq span{flex:0 0 28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.9rem}
 .aa{margin:8px 0 0 40px;border-left:4px solid var(--orange);padding-left:14px}
 @media(max-width:640px){.aa{margin-left:0}.qq{font-size:1rem}}
+
+/* Текст, который стоит прямо на фоне с эмблемами: подкладка, чтобы он читался */
+.page>h1,.page>.q,.page>.note{display:block;width:fit-content;max-width:100%;background:rgba(255,255,255,.9);padding:6px 14px;border-radius:12px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.page>h1{margin-bottom:12px}
+.page>.q{margin:0 0 16px}
+.page>.note{margin:0 0 16px}
