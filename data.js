@@ -1,7 +1,7 @@
 // Файл создаётся автоматически скриптом tools/update_data.py. Вручную лучше не править.
 window.YUGRA_DATA = {
  "season": "2026/27",
- "updated": "19.11.2026, 00:42 (МСК)",
+ "updated": "19.11.2026, 19:28 (МСК)",
  "superliga": {
   "source": "https://competitions.russiabasket.ru/superliga/men/",
   "table": [
@@ -416,10 +416,9 @@ window.YUGRA_DATA = {
       "legs": [
        {
         "date": "19.11.2026",
-        "time": "17:00",
         "home": "Металлург",
         "away": "Новосибирск",
-        "score": null
+        "score": "70:88"
        },
        {
         "date": "10.12.2026",
@@ -434,10 +433,9 @@ window.YUGRA_DATA = {
       "legs": [
        {
         "date": "19.11.2026",
-        "time": "17:00",
         "home": "Югра",
         "away": "Темп-СУМЗ",
-        "score": null
+        "score": "79:82"
        },
        {
         "date": "10.12.2026",
@@ -452,10 +450,9 @@ window.YUGRA_DATA = {
       "legs": [
        {
         "date": "19.11.2026",
-        "time": "17:15",
         "home": "Динамо (Уфа)",
         "away": "ЧБК",
-        "score": null
+        "score": "96:103"
        },
        {
         "date": "10.12.2026",
